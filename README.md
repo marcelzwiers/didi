@@ -1,12 +1,11 @@
-# didi
-Donders Institute Diffusion Imaging (DIDI) toolkit
+# Donders Institute Diffusion Imaging (DIDI) toolkit
 
 Add the didi path to your Matlab path without subdirectories and run the main function from the commandline:
 ```
 dd_basicproc
 ```
 
-## Requirements:
+### Requirements:
 ~~~~~~~~~~~~~
 * SPM12
 * Diffusion toolbox (http://sourceforge.net/projects/spmtools)
