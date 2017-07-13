@@ -5,7 +5,7 @@ function [Mask Target] = dd_basicproc_getmask(Job, SubjNr, SeriesNr, LogName)
 % Get a previously made mask or otherwise make a new one with BET. The DW images
 % are realigned to the meanb0 image (if this Job option is set) and used to
 % create the mask. Using the DW images works better than using the b0 images due
-% to the supressed CSF signal (so it cannot be mistaken for brain tissue).
+% to the suppressed CSF signal (so it cannot be mistaken for brain tissue).
 %
 % DD_BASICPROC_GETMASK is an internal function of dd_basicproc that is
 % made available externally to allow distributed computing.
@@ -102,7 +102,7 @@ switch BETMeth
 			spm_write_vol(spm_vol(Brain), spm_read_vols(spm_vol(Target)) .* MaskVol);
 
 			%-- Save the mean DWI image and clean up
-			movefile(spm_file(MeanDWI,'ext','.*'), fileparts(DWIs(1,:)))
+			movefile(spm_file(MeanDWI,'ext','.*'), fileparts(DWIs(1,:)), 'f')
 			rmdir(TmpDir, 's')
 
 		else	% Print the pre-existing DWI mask
@@ -115,6 +115,9 @@ switch BETMeth
 		
 		error('Unknown Option: %s', BETMeth)
 		
+end
+if isempty(Mask)
+	return
 end
 
 % Save info to the logfile
@@ -139,9 +142,9 @@ if isempty(Job.Nifti(SubjNr,SeriesNr).Files)
 end
 for n = 1:numel(Job.Nifti(SubjNr,SeriesNr).Files)
 	FList{n} = fullfile(Job.Nifti(SubjNr,SeriesNr).Path, Job.Nifti(SubjNr,SeriesNr).Files{n});
-    D(n)	 = dti_get_dtidata(FList{n});
+    b(n)	 = getfield(dti_get_dtidata(FList{n}), 'b');
 end
-b0Sel  = [D.b]<=50;   % ==0;
+b0Sel  = b<=50;   % ==0;
 b0Imgs = char(FList{b0Sel});
 DWImgs = char(FList{~b0Sel});
 

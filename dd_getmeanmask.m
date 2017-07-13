@@ -34,6 +34,11 @@ BETOpts = strtrim(BETOpts);
 if nargin<2 || isempty(Realign)
 	Realign = true;
 end
+if isempty(Imgs)
+	[Mask MeanImg Brain New] = deal('');
+	warning('No images found to create mask')
+	return
+end
 
 % Get a graphics window
 [S LWarn] = mywarning('Off', 'SPM:noDisplay');

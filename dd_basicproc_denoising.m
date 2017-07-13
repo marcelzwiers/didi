@@ -1,4 +1,4 @@
-function DNFiles = dd_basicproc_denoising(Files, Method, Rician, LogName, SeriesNr)
+function [DNFiles MeanSNR] = dd_basicproc_denoising(Files, Method, Rician, LogName, SeriesNr)
 
 % DD_BASICPROC_DENOISING is a key internal function of dd_basicproc that
 % is made available externally to allow distributed computing.
@@ -49,7 +49,7 @@ Hdrs = spm_vol(Files);
 Vol	 = zeros([Hdrs(1).dim numel(Hdrs)]);
 for n = 1:numel(Hdrs)
 	Vol(:,:,:,n) = spm_read_vols(Hdrs(n));
-	D(n) = dti_get_dtidata(Hdrs(n).fname);
+	D(n) = orderfields(dti_get_dtidata(Hdrs(n).fname));
 end
 
 % Scale, denoise and unscale the data
@@ -92,6 +92,14 @@ for n = 1:numel(DNHdrs)
 end
 DNFiles	= char(DNHdrs.fname);
 
+% Save the tSNR data
+SNRHdr		 = rmfield(Hdrs(1), 'pinfo');
+SNRHdr.fname = spm_file(SNRHdr.fname, 'basename',['tSNR_' Method]);
+StdVol		 = std(Vol - DNVol, [], 4);
+SNRVol		 = mean(Vol,4) ./ StdVol;
+SNRHdr		 = spm_write_vol(SNRHdr, SNRVol);
+MeanSNR		 = mean(SNRVol(:));
+
 % Print the results
 if Verbose
 	
@@ -107,8 +115,9 @@ if Verbose
 	PSize = [0.27 0.27];
 	Pos	  = [0.08 0.38 0.68];
 	if Hdrs(1).mat(1)<0
-		Vol	  = flipdim(Vol,1);
-		DNVol = flipdim(DNVol,1);
+		Vol	   = flipdim(Vol,1);
+		DNVol  = flipdim(DNVol,1);
+		StdVol = flipdim(StdVol,1);
 	end
 
 	H		 = axes('Position', [Pos(1) Pos(3) PSize], 'Visible','Off', 'Parent',HG);
@@ -162,7 +171,7 @@ if Verbose
 	axis(H, 'image', 'off')
 
 	H		 = axes('Position', [Pos(3) Pos(1) PSize], 'Visible','Off', 'Parent',HG);
-	NSlice	 = std(Vol(:, :, zi, :) - DNVol(:, :, zi, :), [], 4);
+	NSlice	 = StdVol(:, :, zi);
 	imagesc(flipud(NSlice'), 'Parent',H)
 	axis(H, 'image')
 	set(H, 'XTick',[], 'YTick',[], 'YAxisLocation','Right')
@@ -176,6 +185,19 @@ if Verbose
 	
 	[S LWarn] = mywarning('Off','spm:spm_jobman:NotInitialised');
 	spm_print(LogName)
+	
+	spm_check_registration(SNRHdr)
+	Children = get(HG,'Children');
+	Position = [get(Children(end), 'Position'); get(Children(end-2), 'Position')];
+	colormap('hot'), colorbar
+	H = axes('Parent',HG, 'Position', [Position(2,1) Position(1,2) [1 0.9].*Position(1,3:4)]);
+	hist(H, SNRVol(:), 100)
+	title(H, sprintf('tSNR = %.1f', MeanSNR))
+	xlabel(H, 'tSNR')
+	set(H, 'YTick',[], 'box','off')
+	spm_print(LogName)
+	
+	colormap('gray')
 	mywarning(S, LWarn)
 	
 end

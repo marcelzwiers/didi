@@ -41,7 +41,7 @@ if any(abs(diag(M1(1:3,1:3))./eig(M1(1:3,1:3))) < 0.5)	% Reorient to xyz ordenin
 			OutputType = 'NIFTI_PAIR';
 	end
 	for NiFile = NiList'
-		system(['source ~/.bashrc; export FSLOUTPUTTYPE=' OutputType '; fslreorient2std ' NiFile' ' ' NiFile']);
+		system(['source ~/.bashrc; fslreorient2std ' NiFile' ' ' NiFile' '; fslchfiletype ' OutputType ' ' NiFile']);
 	end
 end
 if Job.T1Box.Val && ~isempty(Job.DICOM(SubjNr).T1Text)

@@ -25,7 +25,8 @@ disp('Cleaning up intermediate denoised-, PATCH- or DW-images...')
 
 for SubjNr = SubjNrs(:)'
 	for SeriesNr = SeriesNrs(:)'
-
+		try
+			
 		% Delete all denoised files
 		if any(strcmp('Denoise', Mode)) && ~strcmp(Job.DenoisingMenu.Str{Job.DenoisingMenu.Val}, 'none')
 			delete(fullfile(Job.Nifti(SubjNr,SeriesNr).Path, [Job.DenoisingMenu.Str{Job.DenoisingMenu.Val} '_*']))
@@ -48,6 +49,7 @@ for SubjNr = SubjNrs(:)'
 		
 		fprintf('.')
 		
+		end
 	end
 end
 fprintf('\n')

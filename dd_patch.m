@@ -318,7 +318,7 @@ if IsRecalc												% Usage IV (Previous info passed via handles (no need to 
 else													% Load the info (NB: mask avoids log of zero)
     disp('Loading data...')
 	for n = 1:size(DTIFiles,1)
-		D(n) = dti_get_dtidata(DTIFiles(n,:));
+		D(n) = orderfields(dti_get_dtidata(DTIFiles(n,:)));
 	end
     DWISel = [D(:).b] > B0;								% We're not interested in the b0-volumes
     q      = vertcat(D(DWISel).g);						% Matrix containing DTI gradient directions
@@ -372,7 +372,7 @@ WLog = single(WLog);
 
 % -- Compute the WLS residuals
 disp('Analyzing residuals...')
-[handles.CVol WVox WSlc WLog handles.SclF] = ...
+[handles.CVol WVox WSlc WLog handles.SclF tSNR] = ...
     runpatch(Vol, VolHdr(1), Mask, b0Vol, q, WCrit, WVox, WSlc, WLog, Method, IsRecalc, AffM, DTIFiles(DWISel,:));
 handles.CVol(:,~Mask) = Vol(:,~Mask);		% Restore values outside the mask
 handles.PCMask = WVox < Thresh(1);
@@ -414,6 +414,7 @@ handles.q         = q;
 handles.input     = DTIFiles;
 handles.DWISel    = DWISel;
 handles.tzyx      = tzyx;
+handles.tSNR	  = tSNR;
 if NrOutliers == 0
     % Make image-panels invisible
     initimpanels(handles, 'Off')
@@ -568,9 +569,9 @@ for q = unique([Regqi' Slcqi'])
     spm_write_vol(Hdr, ipermute(handles.Vol(q,:,:,:), handles.tzyx));
     [Pth Nme] = fileparts(handles.input(DWISelI(q),:));
 	if exist(fullfile(Pth, ['artc_' Nme '.mat']), 'file')
-		delete(fullfile(Pth, ['artc_' Nme '.mat']))	% copyfile can't overwrite writable files that it doesn't own
+		delete(fullfile(Pth, ['artc_' Nme '.mat']))	% It seems that copyfile somehow can't always overwrite writable files that it doesn't own???
 	end
-    copyfile(fullfile(Pth, [Nme '.mat']), fullfile(Pth, ['artc_' Nme '.mat']))
+    copyfile(fullfile(Pth, [Nme '.mat']), fullfile(Pth, ['artc_' Nme '.mat']), 'f')
 end
 
 % Save the WLS weights
@@ -612,6 +613,42 @@ Hdr       = rmfield(Hdr, 'pinfo');
 Hdr.fname = fullfile(fileparts(Hdr.fname), ['PATCH_N' Ext]);
 disp(['Saving: ' Hdr.fname])
 spm_write_vol(Hdr, ipermute(WT, handles.tzyx(2:end)));  % NB the 4th dim is always t
+
+% Save tSNR map as a nifti-file
+Hdr		  = spm_vol(handles.input(1,:));
+Hdr       = rmfield(Hdr, 'pinfo');
+Hdr.fname = fullfile(fileparts(Hdr.fname), ['tSNR_PATCH' Ext]);
+Hdr.dt(1) = spm_type('float32');
+tSNR	  = handles.tSNR(shiftdim(handles.Mask,-1));
+MeantSNR  = mean(tSNR(~isnan(tSNR)));
+disp(['Saving: ' Hdr.fname])
+Hdr		  = spm_write_vol(Hdr, squeeze(ipermute(handles.tSNR, handles.tzyx)));
+if ishandle(HG)
+	LogName  = getappdata(HG, 'LogName');
+	SeriesNr = getappdata(HG, 'SeriesNr');
+	FIDLog	 = fopen([LogName(1:end-2) 'txt'], 'a');
+	if FIDLog > -1
+		fprintf(FIDLog, 'S%g\tPATCH:\ttSNR =\t%g\n', SeriesNr, MeantSNR);
+		fclose(FIDLog);
+	else
+		warning('DIDI:PATCH:OpenFile', 'Could not open: %s', [LogName(1:end-2) 'txt'])
+	end
+	set(0,'CurrentFigure',HG)
+	spm_check_registration(Hdr), colorbar, colormap('hot')
+	spm_orthviews('Window', 1, [0 3*MeantSNR])		% Make the image brighter
+	Children = get(HG,'Children');
+	Position = [get(Children(end), 'Position'); get(Children(end-2), 'Position')];
+	H = axes('Parent',HG, 'Position', [Position(2,1) Position(1,2) [1 0.9].*Position(1,3:4)]);
+	hist(H, tSNR(tSNR<3*MeantSNR), 100)
+	title(H, sprintf('tSNR = %.1f', MeantSNR))
+	xlabel(H, 'tSNR')
+	set(H, 'YTick',[], 'box','off')
+	myspm_print(sprintf('S%g: PATCH - tSNR', SeriesNr), fileparts(handles.input(1,:)))
+	colormap('gray')
+else
+	SeriesNr = 1;
+end
+fprintf('tSNR: %g\n', MeantSNR)
 
 % Finish up
 varargout{1} = Output;
@@ -984,7 +1021,7 @@ end
 %% ------------------------- END -----------------------
 
 
-function [Vol WVox WSlc WLog SclF] = runpatch(Vol, VolHdr, Mask, b0Vol, q, WCrit, WVox, WSlc, WLog, Method, IsRecalc, AffM, FNames)
+function [Vol WVox WSlc WLog SclF tSNR] = runpatch(Vol, VolHdr, Mask, b0Vol, q, WCrit, WVox, WSlc, WLog, Method, IsRecalc, AffM, FNames)
 
 % This is the main function where all the calculations are done
 %
@@ -1087,12 +1124,13 @@ end
 if strcmp(Method, 'PATCH') && WCrit(3)>0
     LogCorrect = true;
 	[Dum BG]   = dd_snr(Vol, Mask, FNames, 'Background noise (DWI)');	% Compute the background noise level
+	BG		   = mean(BG, 2);						% Take the mean over z to make the estimate more robust (i.e. assume a constant noise level)
 	BG0		   = BG;								% Store for later use
 	if isempty(WLog)
 		WLog = bsxfun(@rdivide, Vol, BG);			% The signal / mean background noise
 		WLog = (1-WCrit(3)) + WCrit(3)*WLog;
 		% NB: An easy and robust (but less sensitive) alternative would be to assume
-		% that the signal noise is the same everywhere and just take WLog = Vol;
+		% that the signal noise is the same everywhere and just take: WLog = Vol;
 	end
 else
 	LogCorrect = false;
@@ -1125,8 +1163,9 @@ end
 % Calculate the residual forming matrix (t = [Txx Tyy Tzz Txy Txz Tyz]; y = Qt + e)
 % [Dum DimFlip] = dd_rotategradients;
 % q = repmat(DimFlip, size(q(:,1))) .* q;			% Flip to world coordinates is without consequense
-Q = [q.^2 2*q(:,1).*q(:,2) 2*q(:,1).*q(:,3) 2*q(:,2).*q(:,3)];
-I = eye(size(Q,1));
+Q   = [q.^2 2*q(:,1).*q(:,2) 2*q(:,1).*q(:,3) 2*q(:,2).*q(:,3)];
+I   = eye(size(Q,1));
+QiQ = Q/(Q'*Q)*Q';									% Q times the pseudoinverse of Q
 
 % Go to the log-domain and avoid log(0) = -Inf and log(-#) = complex
 Mask(shiftdim(any(Vol<=0))) = false;				% Avoid voxels with outside volume sampling altogether
@@ -1136,12 +1175,12 @@ Vol			= log(Vol);
 b0Vol		= log(b0Vol);
 
 % Begin iterative re-weighted least squares regression (see also wlsqregress)
-NrUpd        = round(numel(Zi)/250);				% Divide display waitbar in 250 pieces
-MaxChange	 = [];
-Changed		 = [];
-Iterate      = true;
-nIter        = 0;
-CondNr		 = 10*eps(class(WVox));
+NrUpd       = round(numel(Zi)/250);				% Divide display waitbar in 250 pieces
+MaxChange	= [];
+Changed		= [];
+Iterate     = true;
+nIter       = 0;
+CondNr		= 10*eps(class(WVox));
 disp('Starting IRLS estimation...')
 while Iterate
     
@@ -1151,7 +1190,6 @@ while Iterate
 	WVoxPrev	= WVox(:, MaskE);					% Remember the old weights (native sace)
 	WVoxSlcPrev = WVoxSlc(:, MaskE);				% Remember the old weights (native sace)
 	if nIter==1 && ~PrevW
-		QiQ         = Q/(Q'*Q)*Q';					% Q times the pseudoinverse of Q
 		Res(:,Mask) = (I - QiQ) * Vol(:,Mask);		% Simpler & faster when WT=ones
 	else
 		if Realign									% Reslice the weights again to realigned space
@@ -1201,7 +1239,8 @@ while Iterate
 		end
 
 		if Realign											% Reslice the residuals back to native space
-			Res = bireslice(Res, AffM, HWT, 'inv');
+			Res			 = bireslice(Res, AffM, HWT, 'inv');
+			Res(:,~Mask) = 0;
 		end
 		
 		% Compute the slicewise weights
@@ -1321,13 +1360,18 @@ if Changed(end)>NThres || Runaway>NThres			% Use NThres
 			Runaway, Changed(end))
 end
 
+% Compute the tSNR map in realigned space
+tSNR = mean(exp(Vol)) ./ std(exp(Res0));
+tSNR(isinf(tSNR) | tSNR==0) = NaN;
+
 % Compute the predicted values in native space
 Vol = exp(Vol - Res0);								% Realigned space
 mywaitbar(1, HWL, sprintf('%s %g: Computing final corrected volumes', Method, nIter), HWT)
 if Realign
 	% Reslice the volumes back to native space (NB: WVox & WSlc still are)
 	Vol = bireslice(Vol, AffM, HWT, 'inv');
-	Vol(Vol==0) = Vol0(Vol==0);						% Account for out-of-volume sampling
+	Vol(Vol==0)	 = Vol0(Vol==0);					% Account for out-of-volume sampling
+	Vol(:,~Mask) = Vol0(:,~Mask);
 end
 
 % Compute WLog in native space

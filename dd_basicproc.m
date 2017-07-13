@@ -204,7 +204,12 @@ function dd_basicproc_OpeningFcn(hObject, eventdata, handles, varargin)
 % 	warning('You are using Matlab %s. Only versions less recent than 7.13 are supported (due to obsolete fileparts output arguments)', version)
 % end
 if ~any(strcmpi(spm('ver'), {'SPM12', 'SPM12b'}))
-    uiwait(warndlg('This toolbox works with SPM12 or higher only!'))
+    Ans = questdlg('This toolbox works with SPM12 or higher only! Do you want to set your path to SPM12?', 'SPM version conflict');
+	if strcmp(Ans, 'Yes')
+		pathtool
+	else
+		return
+	end
 end
 WhatdTB = what('Diffusion');  % Check if the Diffusion-toolbox on the Matlab-path
 xTB     = spm('TBs');         % Check if the Diffusion-toolbox is installed in SPM
@@ -1485,13 +1490,12 @@ if strcmp(Job.DataMenu.Str{Job.DataMenu.Val}, 'DICOM')
 		
 		% Determine the maximum number of DW directions (images)
 		NDir   = max(cellfun(@numel,{Job.DICOM(:).Files}));
-		TimReq = NDir*10;
-		MemReq = NDir*2*1024^2;
+		[TimReq MemReq] = maxreq(NDir*10, NDir*2*1024^2);
 		fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 		[NiList T1Text] = qsubcellfun(@dd_basicproc_convert2nifti, ...
 									  stackjob(Job,'DICOM','LinInd'), num2cell(1:numel(Job.DICOM)), ...
 									  'TimReq',TimReq, 'MemReq',MemReq, 'jvm','no', ...
-									  'StopOnError',false);		% Use a linear index for ease (we have no log-output, Job.Nifti will be reshaped later)
+									  'StopOnError',false, 'options','-l gres=bandwidth:999');		% Use a linear index for ease (we have no log-output, Job.Nifti will be reshaped later)
 		
 		% Prepare the Nifti job
 		for n = 1:numel(Job.DICOM)
@@ -1500,7 +1504,7 @@ if strcmp(Job.DataMenu.Str{Job.DataMenu.Val}, 'DICOM')
 				Job.Nifti(n).Files  = makefcell(NiList{n});
 				Job.Nifti(n).T1Text = T1Text{n};
 			else
-				fprintf('Failed: %s', Job.DICOM(n).Path)
+				fprintf('Failed: %s\n', Job.DICOM(n).Path)
 				Job.Nifti(n).Path   = '';
 				Job.Nifti(n).Files  = {};
 				Job.Nifti(n).T1Text = '';
@@ -1572,26 +1576,27 @@ end
 % Estimate the SNR of the raw b0- & DW-images and create brain masks
 fprintf('\n==> Estimating the image SNR (%s)\n', datestr(now))
 if Job.ParallelBox.Val
-	TimReq = NDir * 10 * NrSeries;
-	MemReq = NDir * 40*1024^2;		% Estimated mem 3.6GB, it required 700MB
+	[TimReq MemReq] = maxreq(NDir * 10 * NrSeries, NDir * 40*1024^2);		% Estimated mem 3.6GB, it required 700MB
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
-	Err = qsubcellfun(@dd_basicproc_getsnr, stackjob(Job,'Nifti','Subj'), num2cell(1:NrSubj), LogNames, ...
+	OK = qsubcellfun(@dd_basicproc_getsnr, stackjob(Job,'Nifti','Subj'), num2cell(1:NrSubj), LogNames, ...
 					  'TimReq',TimReq, 'MemReq',MemReq, 'StopOnError',false);
 else
 	myset(HG, 'Visible', 'On')
 	myset(HI, 'Visible', 'On')
 	mywaitbar(0, HW, ['Noise level estimation (' num2str(NrSubj) ' subjects)...'])
 	for SubjNr = 1:NrSubj
-		Err{SubjNr} = dd_basicproc_getsnr(Job, SubjNr, LogNames{SubjNr});
+		OK{SubjNr} = dd_basicproc_getsnr(Job, SubjNr, LogNames{SubjNr});
 		mywaitbar(SubjNr/NrSubj, HW)
 	end
 end
 for SubjNr = 1:NrSubj
-	for SeriesNr = 1:numel(Err{SubjNr}) * any(Err{SubjNr})	% Discard the entire serie, otherwise = find(Err{SubjNr})
-		fprintf('Failed: %s', Job.Nifti(SubjNr,SeriesNr).Path)
-		Job.Nifti(SubjNr,SeriesNr).Path	  = '';
-		Job.Nifti(SubjNr,SeriesNr).Files  = {};
-		Job.Nifti(SubjNr,SeriesNr).T1Text = '';
+	if isempty(OK{SubjNr}) || any(~OK{SubjNr})	% Discard the entire serie
+		for SeriesNr = 1:NrSeries
+			fprintf('Failed: %s\n', Job.Nifti(SubjNr,SeriesNr).Path)
+			Job.Nifti(SubjNr,SeriesNr).Path	  = '';
+			Job.Nifti(SubjNr,SeriesNr).Files  = {};
+			Job.Nifti(SubjNr,SeriesNr).T1Text = '';
+		end
 	end
 end
 
@@ -1601,8 +1606,7 @@ if ~strcmp(Job.DenoisingMenu.Str{Job.DenoisingMenu.Val}, 'none')
 	fprintf('\n==> Denoising DW images (%s)\n', datestr(now))
 	NiList = makeflist(Job.Nifti);				% cellarray of size NrSubj x NrSeries
 	if Job.ParallelBox.Val
-		TimReq = NDir * 400;					% This works for LPCA
-		MemReq = NDir * 50*1024^2;
+		[TimReq MemReq] = maxreq(NDir * 800, NDir * 150*1024^2);
 		fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 		DNFiles = qsubcellfun(@dd_basicproc_denoising, NiList, ...
 							  repmat(Job.DenoisingMenu.Str(Job.DenoisingMenu.Val), NrSubj, NrSeries), ...
@@ -1613,8 +1617,7 @@ if ~strcmp(Job.DenoisingMenu.Str{Job.DenoisingMenu.Val}, 'none')
 		for n = 1:numel(Job.Nifti)
 			Job.Nifti(n).Files = makefcell(DNFiles{n});		% Update the Job info
 		end
-		TimReq = NDir * 30 * NrSeries;
-		MemReq = NDir * 30*1024^2;
+		[TimReq MemReq] = maxreq(NDir * 30 * NrSeries, NDir * 30*1024^2);
 		fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 		Mask = qsubcellfun(@dd_basicproc_getmask, stackjob(Job,'Nifti','Subj'), num2cell(1:NrSubj), cell(1,NrSubj), ...
 						   LogNames, 'TimReq',TimReq, 'MemReq',MemReq);
@@ -1632,7 +1635,7 @@ if ~strcmp(Job.DenoisingMenu.Str{Job.DenoisingMenu.Val}, 'none')
 	end
 	for SubjNr = 1:NrSubj
 		for SeriesNr = 1:numel(Mask{SubjNr}) * any(isempty(Mask{SubjNr}))	% Discard the entire serie, otherwise = find(isempty(Mask{SubjNr}))
-			fprintf('Failed: %s', Job.Nifti(SubjNr,SeriesNr).Path)
+			fprintf('Failed: %s\n', Job.Nifti(SubjNr,SeriesNr).Path)
 			Job.Nifti(SubjNr,SeriesNr).Path   = '';
 			Job.Nifti(SubjNr,SeriesNr).Files  = {};
 			Job.Nifti(SubjNr,SeriesNr).T1Text = '';
@@ -1651,8 +1654,7 @@ if ~strcmp(Job.ArtDetMenu.Str{Job.ArtDetMenu.Val}, 'none')
 		
 		% Compute the rigid-body-transformation parameters of the DW images
 		fprintf('\n==> Realigning DW images (%s)\n', datestr(now))
-		TimReq = NDir * 120;
-		MemReq =  0.5 * 1024^3;
+		[TimReq MemReq] = maxreq(NDir * 120, 0.5 * 1024^3);
 		fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 		RBTM = qsubcellfun(@dd_basicproc_realignpar, stackjob(Job,'Nifti','SubjSeries'), ...
 							repmat(num2cell(1:NrSubj)',1,NrSeries), repmat(num2cell(1:NrSeries),NrSubj,1), ...
@@ -1662,8 +1664,7 @@ if ~strcmp(Job.ArtDetMenu.Str{Job.ArtDetMenu.Val}, 'none')
 		
 		% Start the automatic artefact detection
 		fprintf('\n==> Detecting artefacts in DW images (%s)\n', datestr(now))
-		TimReq = NDir*60;
-		MemReq = NDir*40*1024^2;
+		[TimReq MemReq] = maxreq(NDir*60, NDir*120*1024^2);
 		fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 		ArtDFiles = qsubcellfun(@dd_patch, NiList, cell(NrSubj,NrSeries), repmat({WCrit},NrSubj,NrSeries), ...
 								num2cell(true(NrSubj,NrSeries)), RBTM, repmat(LogNames',1,NrSeries), ...
@@ -1704,7 +1705,7 @@ if ~strcmp(Job.ArtDetMenu.Str{Job.ArtDetMenu.Val}, 'none')
 			for SeriesNr = 1:NrSeries
 				
 				if isempty(Job.Nifti(SubjNr,SeriesNr).Files)
-					fprintf('Failed: %s', Job.Nifti(SubjNr,SeriesNr).Path)
+					fprintf('Failed: %s\n', Job.Nifti(SubjNr,SeriesNr).Path)
 					continue
 				end
 				
@@ -1736,8 +1737,7 @@ if Job.ParallelBox.Val
 
 	% Realign the DW images. NB: Do not resubmit unless it takes really long (to avoid two jobs messing with the same data)
 	fprintf('\n==> Realigning DW + b0 images (%s)\n', datestr(now))
-	TimReq = NDir*120 * NrSeries;
-	MemReq = 1024^3;
+	[TimReq MemReq] = maxreq(NDir*120 * NrSeries, 1024^3);
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 	[RBTM APar D2TM] = qsubcellfun(@dd_basicproc_realign, stackjob(Job,'Nifti','Subj'), ...
 									num2cell(1:NrSubj), repack(RBTM), LogNames, ...
@@ -1747,8 +1747,7 @@ if Job.ParallelBox.Val
 
 	% Reslice/unwarp the DW images
 	fprintf('\n==> Unwarping / resampling images (%s)\n', datestr(now))
-	TimReq = NDir*120 * NrSeries + 2*60^2;
-	MemReq = 1.5*1024^3;
+	[TimReq MemReq] = maxreq(NDir*120 * NrSeries + 2*60^2, 1.5*1024^3);
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 	[TgtImgs WImgs] = qsubcellfun(@dd_basicproc_warp, stackjob(Job,'Nifti','Subj'), ...
 								  num2cell(1:NrSubj), LogNames, APar, D2TM, ...
@@ -1769,17 +1768,15 @@ if Job.ParallelBox.Val
 	
 	% Export the data for use in Camino or FSL
 	fprintf('\n==> Exporting imaging data (%s)\n', datestr(now))
-	TimReq = NDir*10;
-	MemReq = NDir*10*1024^2;
+	[TimReq MemReq] = maxreq(NDir*10, NDir*10*1024^2);
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
-	Err = qsubcellfun(@dd_basicproc_exportdwi, stackjob(Job,'Nifti','SubjSeries'), ...
+	OK = qsubcellfun(@dd_basicproc_exportdwi, stackjob(Job,'Nifti','SubjSeries'), ...
 					  repmat(num2cell(1:NrSubj)',1,NrSeries), repmat(num2cell(1:NrSeries),NrSubj,1), ...
-					  'TimReq',TimReq, 'MemReq',MemReq, 'Stack',10, 'options','-l gres=bandwidth:499', 'StopOnError',false);
+					  'TimReq',TimReq, 'MemReq',MemReq, 'Stack',10, 'options','-l gres=bandwidth:999', 'StopOnError',false);
 	
 	% Estimate the diffusion tensor and its invariants
 	fprintf('\n==> Estimating diffusions tensors and (normalized) invariants (%s)\n', datestr(now))
-	TimReq = NDir*60;
-	MemReq = NDir*20*1024^2;
+	[TimReq MemReq] = maxreq(NDir*60, NDir*20*1024^2);
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 	TDImgs = qsubcellfun(@dd_basicproc_estdtensor, stackjob(Job,'Nifti','SubjSeries'), ...
 						 repmat(num2cell(1:NrSubj)',1,NrSeries), repmat(num2cell(1:NrSeries),NrSubj,1), ...
@@ -1787,8 +1784,7 @@ if Job.ParallelBox.Val
 
 	% Hyper-align & normalize the tensor invariants
 	fprintf('\n==> Normalizing diffusions tensor invariants (%s)\n', datestr(now))
-	TimReq = NDir*60 * NrSeries;
-	MemReq = NDir*20*1024^2;
+	[TimReq MemReq] = maxreq(NDir*60 * NrSeries, NDir*20*1024^2);
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 	TDImgs = qsubcellfun(@dd_basicproc_normtdimgs, stackjob(Job,'Nifti','Subj'), ...
 						 num2cell(1:NrSubj), LogNames, repack(TDImgs), ...
@@ -1817,7 +1813,7 @@ else
 			Job.Output(SubjNr,SeriesNr).WImgs   = WImgs{SeriesNr};
 		
 			% Export the data for use in Camino or FSL
-			Err{SubjNr,SeriesNr} = dd_basicproc_exportdwi(Job, SubjNr, SeriesNr);
+			OK{SubjNr,SeriesNr} = dd_basicproc_exportdwi(Job, SubjNr, SeriesNr);
 			
 			% Estimate the diffusion tensor and its (normalized) invariants
 			TDImgs{SubjNr,SeriesNr} = dd_basicproc_estdtensor(Job, SubjNr, SeriesNr, LogNames{SubjNr});
@@ -1832,8 +1828,8 @@ else
 	end
 end
 for n = 1:NrSubj*NrSeries
-	if Err{n}
-		fprintf('Failed: %s', Job.Nifti(n).Path)
+	if isempty(OK{n}) || ~OK{n}
+		fprintf('Failed: %s\n', Job.Nifti(n).Path)
 		Job.Nifti(n).Path	= '';
 		Job.Nifti(n).Files	= {};
 		Job.Nifti(n).T1Text = '';
@@ -2068,8 +2064,10 @@ function update_preprocessing_panel(handles)
 
 SeriesNr = get(handles.MeasurementMenu, 'Value');
 SubjNr	 = get(handles.SubjMenu, 'Value');
-set(handles.BETOpts, 'String', handles.BETOpts_.Str{SubjNr,SeriesNr})
-set(handles.BETMenu, 'Value',  handles.BETMenu_.Val(SubjNr,SeriesNr))
+if ~isempty(handles.BETOpts_.Str)
+	set(handles.BETOpts, 'String', handles.BETOpts_.Str{SubjNr,SeriesNr})
+	set(handles.BETMenu, 'Value',  handles.BETMenu_.Val(SubjNr,SeriesNr))
+end
 
 if get(handles.T1Box,'Value')
 	set(handles.T1Text, 'Visible', 'on')
@@ -2291,4 +2289,19 @@ switch questdlg(['Some data sets have unspecified T1-reference images. Do you wa
         
         OK = [];
 
+end
+
+function [TimReq MemReq] = maxreq(TimReq, MemReq)
+
+% TODO: retrieve values from qstat -q
+MaxTime = 48*60*60;
+MaxMem  = 256*1024^3;
+
+if TimReq > MaxTime
+	warning('Required time %i is larger than the queue maximum %i', TimReq, MaxTime)
+	TimReq = MaxTime;
+end
+if MemReq > MaxMem
+	warning('Required memory %i is larger than the queue maximum %i', MemReq, MaxMem)
+	MemReq = MaxMem;
 end

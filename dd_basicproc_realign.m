@@ -89,11 +89,8 @@ function [RBTM APar D2TM] = realignseries(DWTVol, R, Job, SubjNr, SeriesNr, RBTM
 
 [APar D2TM] = deal([]);
 
-% Get the DWVol headers, the DW info and the b0/DWI-mask
+% Get the DWVol headers
 DWVol = spm_vol(makeflist(Job.Nifti(SubjNr,SeriesNr)));	% SPM source input
-for n = 1:numel(DWVol)
-	D(n) = dti_get_dtidata(DWVol(n).fname);
-end
 
 %--> Compute the transformation (R) from DWTVol -> DWGrandTVol -> (MNI realigned) T1 image
 M	   = spm_get_space(DWTVol.fname);	% DWTVol is in register on disk with the raw DWI/meanb0 target volume
@@ -103,8 +100,12 @@ DWTVol = spm_vol(DWTVol.fname);			% Restore DWTVol now that the info is stored i
 %--> Compute and set the transformation (RBTM) from DWVol -> DWTVol in all volume headers
 if ~strcmp(Job.RealignMenu.Str{Job.RealignMenu.Val}, 'none')
 	
+	% Get the b0/DWI-mask
+	for n = 1:numel(DWVol)
+		b0s(n) = getfield(dti_get_dtidata(DWVol(n).fname), 'b') < 50;
+	end
+
 	% Realign the b0-images to DWTVol (Mask volumes should already be in register with DWTVol)
-	b0s = [D.b]<50;
 	spm_realign([DWTVol; DWVol(b0s)], struct('quality',1, 'sep',2, 'rtm',0));	% spm_realign should do just fine here
 	
 	% Compute the transformation from DWVol -> DWTVol / mean-DWI

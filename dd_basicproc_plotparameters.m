@@ -16,9 +16,9 @@ disp('Transformation parameters:')
 disp([{'x' 'y' 'z' 'pitch' 'rol' 'yaw'}; num2cell(round(1e4*Params(:,1:6))/1e4)])
 
 for n = 1:numel(Vols)
-	D(n) = dti_get_dtidata(Vols(n).fname);
+	b(n) = getfield(dti_get_dtidata(Vols(n).fname), 'b');
 end
-b0s = find([D.b]<50);
+b0s = find(b<50);
 
 fg = spm_figure('FindWin','Graphics');
 if ishandle(fg)

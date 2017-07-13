@@ -29,7 +29,7 @@ end
 disp('Loading DW volumes & weights...')
 spm('FigName', 'PATCH estimation');
 for n = 1:size(rFNames,1)
-	D(n) = dti_get_dtidata(rFNames(n,:));
+	D(n) = orderfields(dti_get_dtidata(rFNames(n,:)));
 end
 DWISel = [D(:).b] > B0;								% The DWI files
 q      = vertcat(D(DWISel).g);						% Matrix containing DTI gradient directions in world-space
@@ -86,19 +86,19 @@ end
 
 %% -- END --
 
-% % function Vol = bireslice(Vol, Mi)
-% % 
-% % VolSz = size(Vol);
-% % spm_progress_bar('Init', VolSz(1), 'Reslicing', 'Volumes');
-% % for ti = 1:VolSz(1)
-% % 	spm_progress_bar('Set', ti)
-% % 	Volxyz = permute(Vol(ti,:,:,:), [4 3 2 1]);			% Vol = Vol(t,z,y,x)
-% % 	for zi = 1:VolSz(2)
-% % 		ni = min(size(Mi,4), zi);						% ni is either 1 or zi (Andersson)
-% % 		if any(any(abs(Mi(:,:,ti,ni)-eye(4)) > 1e-12))	% Account for rounding errors
-% % 			% Reslice the xyz-volume using sinc interpolation; reslicing to realigned space => inverse rotation
-% % 			Vol(ti,zi,:,:) = ipermute(spm_slice_vol(Volxyz, Mi(:,:,ti,ni)\spm_matrix([0 0 zi]), ...
-% % 													VolSz([4 3]), -1), [2 1]);
-% % 		end
-% % 	end
-% % end
+% function Vol = bireslice(Vol, Mi)
+% 
+% VolSz = size(Vol);
+% spm_progress_bar('Init', VolSz(1), 'Reslicing', 'Volumes');
+% for ti = 1:VolSz(1)
+% 	spm_progress_bar('Set', ti)
+% 	Volxyz = permute(Vol(ti,:,:,:), [4 3 2 1]);			% Vol = Vol(t,z,y,x)
+% 	for zi = 1:VolSz(2)
+% 		ni = min(size(Mi,4), zi);						% ni is either 1 or zi (Andersson)
+% 		if any(any(abs(Mi(:,:,ti,ni)-eye(4)) > 1e-12))	% Account for rounding errors
+% 			% Reslice the xyz-volume using sinc interpolation; reslicing to realigned space => inverse rotation
+% 			Vol(ti,zi,:,:) = ipermute(spm_slice_vol(Volxyz, Mi(:,:,ti,ni)\spm_matrix([0 0 zi]), ...
+% 													VolSz([4 3]), -1), [2 1]);
+% 		end
+% 	end
+% end

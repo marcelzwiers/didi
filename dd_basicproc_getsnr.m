@@ -1,4 +1,4 @@
-function Err = dd_basicproc_getsnr(Job, SubjNr, LogName)
+function OK = dd_basicproc_getsnr(Job, SubjNr, LogName)
 
 % DD_BASICPROC_GETSNR is a key internal function of dd_basicproc that is made
 % available externally to allow distributed computing.
@@ -7,7 +7,7 @@ function Err = dd_basicproc_getsnr(Job, SubjNr, LogName)
 %
 % See also: DD_BASICPROC, DD_SNR
 
-Err = true(size(Job.Nifti(SubjNr,:)));
+OK = false(size(Job.Nifti(SubjNr,:)));
 if any(cellfun(@isempty,{Job.Nifti(SubjNr,:).Files}))
 	return
 end
@@ -43,7 +43,7 @@ for SeriesNr = 1:size(Job.Nifti,2)
 	end
 	
 	% Return succesful
-	Err(SeriesNr) = false;
+	OK(SeriesNr) = true;
 	
 end
 
@@ -60,7 +60,7 @@ if isempty(Job.Nifti(SubjNr,SeriesNr).Files)
 end
 for n = 1:numel(Job.Nifti(SubjNr,SeriesNr).Files)
 	FList{n} = fullfile(Job.Nifti(SubjNr,SeriesNr).Path, Job.Nifti(SubjNr,SeriesNr).Files{n});
-    D(n)	 = dti_get_dtidata(FList{n});
+    D(n)	 = orderfields(dti_get_dtidata(FList{n}));
 end
 b0Sel  = [D.b]<=50;   % ==0;
 b0Imgs = char(FList{b0Sel});

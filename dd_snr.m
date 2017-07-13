@@ -134,7 +134,7 @@ if ~isempty(HG) && ~isempty(Title)
 	ax = axes('Position',[0.63 0.75 0.3 0.17],'Parent',HG,'Visible','off');
 	StdVol = shiftdim(max(std(Vol,[],1),[],2));
 	Mask   = double(shiftdim(max(Mask)));
-	if Hdr.mat(1)<0
+	if exist('Hdr','var') && Hdr.mat(1)<0
 		StdVol = fliplr(StdVol);
 		Mask   = fliplr(Mask);
 	end

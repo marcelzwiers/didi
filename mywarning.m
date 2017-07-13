@@ -17,14 +17,14 @@ function [S LWarn] = mywarning(varargin)
 % disp('NORMAL WARNING BEHAVIOUR:')
 % warning('This is some previous warning')
 % S = warning('Off','test:warningbehaviour');
-% warning('test:warningbehaviour','This switched off warning is supressed but still caught by lastwarn')
+% warning('test:warningbehaviour','This switched off warning is suppressed but still caught by lastwarn')
 % warning(S)
 % disp(['Lastwarn: ' lastwarn])
 % 
 % disp('MYWARNING BEHAVIOUR:')
 % warning('This is some previous warning')
 % [S LWarn] = mywarning('Off','test:mywarningbehaviour');
-% warning('test:mywarningbehaviour','This switched off warning is supressed and not rethrown by lastwarn')
+% warning('test:mywarningbehaviour','This switched off warning is suppressed and not rethrown by lastwarn')
 % mywarning(S, LWarn)
 % disp(['Lastwarn: ' lastwarn])
 % 

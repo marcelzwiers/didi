@@ -31,7 +31,7 @@ dd_initcnode(Job)
 
 % Get the mask and DTI info for all Series
 for n = 1:numel(Job.Nifti(SubjNr,SeriesNr).Files)
-	D(n) = dti_get_dtidata(fullfile(Job.Nifti(SubjNr,SeriesNr).Path, Job.Nifti(SubjNr,SeriesNr).Files{n}));
+	D(n) = orderfields(dti_get_dtidata(fullfile(Job.Nifti(SubjNr,SeriesNr).Path, Job.Nifti(SubjNr,SeriesNr).Files{n})));
 end
 b0Sel		  = [D.b]<=50;   % ==0;
 [Mask Meanb0] = dd_basicproc_getmask(Job, SubjNr, SeriesNr);	% Don't print the mask again

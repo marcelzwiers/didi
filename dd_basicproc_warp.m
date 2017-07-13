@@ -40,7 +40,7 @@ DWVol		  = spm_vol(makeflist(Job.Nifti(SubjNr,SeriesNr)));		% = SPM source input
 RBTM		  =	zeros(4,4,numel(DWVol));
 for n = 1:numel(DWVol)
 	RBTM(:,:,n) = DWVol(n).mat / DWTVol.mat;
-	D(n)		= dti_get_dtidata(DWVol(n).fname);
+	D(n)		= orderfields(dti_get_dtidata(DWVol(n).fname));
 end
 b0Sel = [D.b]<=50;			% =b0;
 

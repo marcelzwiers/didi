@@ -1,4 +1,4 @@
-function Err = dd_basicproc_exportdwi(Job, SubjNrs, SeriesNrs)
+function OK = dd_basicproc_exportdwi(Job, SubjNrs, SeriesNrs)
 
 % DD_BASICPROC_EXPORTDWI is a key internal function of dd_basicproc that
 % is made available externally to allow distributed computing.
@@ -10,7 +10,7 @@ function Err = dd_basicproc_exportdwi(Job, SubjNrs, SeriesNrs)
 % See also: DD_BASICPROC, DD_BASICPROC_REALIGNWARP
 
 if ~Job.CaminoBox.Val && ~Job.FSLBox.Val
-	Err = false;
+	OK = true;
 	return
 end
 if nargin<3 || isempty(SeriesNrs)
@@ -34,7 +34,7 @@ for SubjNr = SubjNrs
 		VoxSz = spm_imatrix(M1);
 		VoxSz = VoxSz(7:9);
 		for n = 1:numel(DWImgs)
-			D(n) = dti_get_dtidata(DWImgs{n});
+			D(n) = orderfields(dti_get_dtidata(DWImgs{n}));
 		end
 		[D DimFlip] = dd_rotategradients(D, inv(M1));		% The dimflip brings Volkmar's vector in world-space (see dd_rotategradients)
 		BVecs = diag(sign(VoxSz).*DimFlip) * vertcat(D.g)';	% Volkmar-space => image-space => voxel-space
@@ -86,4 +86,4 @@ for SubjNr = SubjNrs
 	end
 end
 
-Err = false;
+OK = true;
