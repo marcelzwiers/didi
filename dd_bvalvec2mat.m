@@ -49,16 +49,16 @@ end
 BVec = load(BVecFile);
 Sz	 = size(BVec);
 if ~any(Sz==3) || numel(Sz)~=2
-	error('The b-vector file has wrong size [%d x %d] instead of [n x 3] or [3 x n]', Sz)
+	error('The b-vector file (%s) has wrong size [%d x %d] instead of [n x 3] or [3 x n]', BVecFile, Sz)
 elseif Sz(1)==3
 	BVec = BVec';
 end
 BVal = load(BValFile);
 if numel(BVal)~=size(BVec,1)
-	error('The b-value file has wrong size [%d] instead of [%d]', numel(BVal), size(BVec,1))
+	error('The b-value file (%s) has wrong size [%d] instead of [%d]', BValFile, numel(BVal), size(BVec,1))
 end
 if size(DWIFiles,1) ~= numel(BVal)
-	error('The number of DWI-files (%d) does not match with the number of bval/bvec elements (%d)', size(DWIFiles,1), numel(BVal))
+	error('The number of DWI-files (%d) does not match with the number of bval/bvec elements (%d; see e.g. %s)', size(DWIFiles,1), numel(BVal), BValFile)
 end
 
 % Map the vectors from RAS to LAS coordinates, i.e. include Volkmar's x-flip error! (see dd_rotategradients)
