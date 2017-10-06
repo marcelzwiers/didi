@@ -58,7 +58,7 @@ if numel(BVal)~=size(BVec,1)
 	error('The b-value file (%s) has wrong size [%d] instead of [%d]', BValFile, numel(BVal), size(BVec,1))
 end
 if size(DWIFiles,1) ~= numel(BVal)
-	error('The number of DWI-files (%d) does not match with the number of bval/bvec elements (%d; see e.g. %s)', size(DWIFiles,1), numel(BVal), BValFile)
+	error('The number of DWI-files (%d) does not match with the number of bval/bvec elements (%d; See e.g. %s)', size(DWIFiles,1), numel(BVal), BValFile)
 end
 
 % Map the vectors from RAS to LAS coordinates, i.e. include Volkmar's x-flip error! (see dd_rotategradients)
