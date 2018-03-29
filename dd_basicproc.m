@@ -1851,7 +1851,7 @@ end
 try
 	dti_get_dtidata(DWIFiles{1});
 catch
-	warning('No standard DWI information found in %s. Will try to use bval and bvec files', Job.Nifti(n).Path)
+	warning('No standard DWI information found in %s. Will try to use bval and bvec files', DWIFiles{1})
 	if spm_select('List', Job.Nifti(n).Path, 'bvec.txt|.*bvec$')
 		dd_bvalvec2mat(DWIFiles);
 	else

@@ -54,14 +54,14 @@ for n = 1:length(DCMHdrs)
             isempty(read_acquisitionmatrixtext(DCMHdrs{n})) ||...
             isempty(read_nrofimagesinmosaic(DCMHdrs{n}))
         Mosaic(n) = false;
-        warning('DIDI:DicomInfo', 'Extracting DTI information was tested for mosaic images only...')
+        warning('DIDI:DicomInfo', 'Extracting DTI information was tested for mosaic images only...\n%s', DCMHdrs{n}.Filename)
     else
         Mosaic(n) = true;
     end
     try
         BVal(n) = str2num(char(cellstr(get_numaris4_val(DCMHdrs{n}.CSAImageHeaderInfo, 'B_value'))));
     catch
-        warning('This file does not seem to contain DTI-info')
+        warning('This file does not seem to contain DTI-info\n%s', DCMHdrs{n}.Filename)
 		if nargout, [BVal BVec BMtx Mosaic] = deal([]); end
 		return
     end
