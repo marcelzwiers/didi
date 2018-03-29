@@ -40,6 +40,7 @@ if ischar(Mask) || iscellstr(Mask)
 	Mask = logical(permute(spm_read_vols(spm_vol(char(Mask))), [3 2 1]));
 end
 if ischar(Vol)
+	fprintf('Reading:\t%s\n\t\t[..]\n', Vol(1,:))
 	% Vol = permute(spm_read_vols(spm_vol(Vol)), [4 3 2 1]); % Not robust against realigned images
 	Hdr  = spm_vol(Vol(1,:));
 	Vols = zeros([Hdr.dim size(Vol,1)]);
@@ -47,11 +48,13 @@ if ischar(Vol)
 		Vols(:,:,:,n) = spm_read_vols(spm_vol(Vol(n,:)));
 	end
 	Vol = permute(Vols, [4 3 2 1]);						% tzyx-volume
+	Vol(isnan(Vol)) = 0;
 	clear Vols
 end
 if isempty(Mask)										% Use a simple threshold mask
 	MeanVol = smoothn(shiftdim(mean(Vol,1)), 5);
 	Mask	= MeanVol > 0.3*max(MeanVol(:));
+	fprintf('Created simple threshold mask of %d/%d non-zero voxels\n', sum(Mask(:)), numel(Mask))
 end
 R		= 2;											% Create a spherical kernel with radius R
 Kernel	= ones(2*R+1, 2*R+1, 2*R+1);
@@ -173,6 +176,10 @@ if ~isempty(HG) && ~isempty(Title)
 	ax = subplot(4,1,2, 'Parent',HG);
 	plot(ax, Int, Nr)
 	XLim2 = double(max(Int(:)));
+	if isempty(XLim2) || isnan(XLim2) || XLim2<=0
+		warning('Creation of histograms of the raw background data failed')
+		XLim2 = 1;
+	end
 	xlim(ax, [0 XLim2])
 	YLim2 = 1.1 * max(max(Nr(2:end,:)));
 	ylim(ax, [0 YLim2])										% The first bin contains the zeros
