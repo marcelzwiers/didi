@@ -29,13 +29,13 @@ else
 	DWIFiles = char(DWIFiles);
 end
 if nargin<2 || isempty(BValFile)
-	BValFile = spm_select('FPList', fileparts(DWIFiles(1,:)), 'bval.txt|.*bval$');	% Make an educated guess
+	BValFile = spm_select('FPList', fileparts(DWIFiles(1,:)), 'bval\.txt|bval$|bvals$');	% Make an educated guess
 	if isempty(BValFile)
 		BValFile = spm_select(1,'any','Select the file containg the b-value information',{},fileparts(DWIFiles(1,:)));
 	end
 end
 if nargin<3 || isempty(BVecFile)
-	BVecFile = strrep(BValFile, 'bval', 'bvec');									% Make an educated guess
+	BVecFile = strrep(BValFile, 'bval', 'bvec');											% Make an educated guess
 	if ~exist(BVecFile,'file')
 		BVecFile = spm_select(1,'any','Select the file containg the b-vector information',{},fileparts(BVecFile));
 	end

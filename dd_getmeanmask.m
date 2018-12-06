@@ -81,15 +81,15 @@ else											% Create a new mask using BET
 			case 'img'
 				Format = 'NIFTI_PAIR';
 			otherwise
-				error('Unknown output format .%s (%s)', Ext, Img1);
+				Msg = sprintf('Unknown output format .%s (%s)', Ext, Img1);
+				error(Msg);
 		end
 		fprintf('\nCreating mask-file: %s\n', Mask);
-		% THIS SHOULD WORK BUT BET DOES NOT RESPECT FSLOUTPUTTYPE [Sts Msg] = unix(['source ~/.bashrc; export FSLOUTPUTTYPE=' Format '; bet ' MeanImg ' ' Brain(1:end-4) ' ' BETOpts]);
-		[Sts Msg] = unix(['source ~/.bashrc; bet ' MeanImg ' ' Brain(1:end-4) ' ' BETOpts]);
+		[Sts Msg] = system(['source ~/.bashrc; export FSLOUTPUTTYPE=' Format '; bet ' MeanImg ' ' Brain(1:end-4) ' ' BETOpts]);	% THIS SHOULD WORK BUT BET DOES NOT RESPECT FSLOUTPUTTYPE IN MATLAB?!
 		if Sts % || ~isempty(Msg)
 			if strfind(BETOpts, '-R')
 				warning('DIDI:BET', 'Failure detected: Trying BET without the -R option')
-				[Sts Msg] = unix(['source ~/.bashrc; bet ' MeanImg ' ' Brain(1:end-4) ' ' strrep(BETOpts,'-R','')]);
+				[Sts Msg] = system(['source ~/.bashrc; bet ' MeanImg ' ' Brain(1:end-4) ' ' strrep(BETOpts,'-R','')]);
 				if Sts % || ~isempty(Msg)
 					error(Msg)
 				end
@@ -97,8 +97,12 @@ else											% Create a new mask using BET
 				error(Msg)
 			end
 		end
-		unix(['source ~/.bashrc; fslchfiletype ' Format ' ' Mask ...
-							  '; fslchfiletype ' Format ' ' Brain]);
+		[Sts Msg] = system(['source ~/.bashrc; fslchfiletype ' Format ' ' Mask ...
+											'; fslchfiletype ' Format ' ' Brain]);
+		if ~isempty(dir([Brain(1:end-4) '*.gz']))
+			warning('FSLOUTPUTTYPE not respected under Matlab (?), trying to unzip the bet output files')
+			gunzip([Brain(1:end-4) '*.gz'])
+		end
 		New	= true;
 		
 	catch BetError

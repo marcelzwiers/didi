@@ -1310,6 +1310,7 @@ for n = 1:NrSubj
 		delete([LogNames{n}(1:end-2) 'txt'])
 	end
 end
+disp(['Saving Job structure in: ' JobName])
 save(JobName, 'Job')
 
 % Run the job!
@@ -1546,7 +1547,20 @@ for n = 1:numel(Job.Nifti)
 	mywaitbar(n/numel(Job.Nifti), HW)
 end
 
-% Determine the maximum number of DW directions (images)
+% Convert 4D nifti files into 3D nifti files
+for n = 1:numel(Job.Nifti)
+	NDir = numel(Job.Nifti(n).Files);
+	if NDir == 1
+		Hdr = spm_vol(fullfile(Job.Nifti(n).Path, char(Job.Nifti(n).Files)));
+		if length(Hdr) > 1
+			disp(['Splitting 4D nifti-file: ' Hdr(1).fname])
+			Hdrs			   = spm_file_split(Hdr);
+			Job.Nifti(n).Files = spm_file({Hdrs.fname}, 'filename');
+		end
+	end
+end
+
+% Determine the maximum number of DW directions (images) and split the file if it is 4D
 NDir			  = max(cellfun(@numel,{Job.Nifti.Files}));
 [NrSubj	NrSeries] = size(Job.Nifti);
 
@@ -1852,7 +1866,7 @@ try
 	dti_get_dtidata(DWIFiles{1});
 catch
 	warning('No standard DWI information found in %s. Will try to use bval and bvec files', DWIFiles{1})
-	if spm_select('List', Job.Nifti(n).Path, 'bvec.txt|.*bvec$')
+	if spm_select('List', Job.Nifti(n).Path, 'bvec\.txt|bvec$|bvecs$')
 		dd_bvalvec2mat(DWIFiles);
 	else
 		error('No DWI information found in %s', Job.Nifti(n).Path)

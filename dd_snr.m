@@ -52,7 +52,7 @@ if ischar(Vol)
 	clear Vols
 end
 if isempty(Mask)										% Use a simple threshold mask
-	MeanVol = smoothn(shiftdim(mean(Vol,1)), 5);
+	MeanVol = smoothn(shiftdim(mean(Vol,1)), 7);
 	Mask	= MeanVol > 0.3*max(MeanVol(:));
 	fprintf('Created simple threshold mask of %d/%d non-zero voxels\n', sum(Mask(:)), numel(Mask))
 end
