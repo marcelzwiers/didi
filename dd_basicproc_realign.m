@@ -58,7 +58,7 @@ if Job.T1Box.Val && ~isempty(T1Img)
 	R = inv(spm_matrix(x));								% Transformation from DWGrandTVol to T1Img
 	x = spm_imatrix(R);
 	myspm_print(LogName, 'S*: Coregistration DWI -> T1', Job.Nifti(SubjNr).Path)
-	FIDLog = fopen([LogName(1:end-2) 'txt'], 'a');
+	FIDLog = fopen([LogName(1:end-2) 'tsv'], 'a');
 	fprintf(FIDLog, 'S*\tCoregistration DWI->T1:\tRBTPar =\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n', ...
 					x(1:3), x(4:6)*180/pi);
 	fclose(FIDLog);
@@ -113,7 +113,7 @@ if ~strcmp(Job.RealignMenu.Str{Job.RealignMenu.Val}, 'none')
 	
 	% Compute the transformation from mean-DWI -> DWTVol and set all headers -> DWTVol
 	s	   = find(~b0s);										% = the index of DWVol(~b0Sel); numel(s)==size(RBTM,3)
-	FIDLog = fopen([LogName(1:end-2) 'txt'], 'a');
+	FIDLog = fopen([LogName(1:end-2) 'tsv'], 'a');
 	switch Job.RealignMenu.Str{Job.RealignMenu.Val}
 		
 		case 'sq DT-error'										% D2TM = DWVol -> DWGrandTVol = WIP & not tested

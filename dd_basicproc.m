@@ -168,7 +168,7 @@ function varargout = dd_basicproc(varargin)
 %
 % Edit the above text to modify the response to help dd_basicproc
 
-% Last Modified by GUIDE v2.5 11-Nov-2014 21:57:47
+% Last Modified by GUIDE v2.5 12-Apr-2019 19:25:28
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -956,6 +956,28 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
+function MaxBValText_Callback(hObject, eventdata, handles)
+% hObject    handle to MaxBValHeader (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of MaxBValHeader as text
+%        str2double(get(hObject,'String')) returns contents of MaxBValHeader as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function MaxBValText_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MaxBValHeader (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
 % --- Executes on button press in MDBox.
 function MDBox_Callback(hObject, eventdata, handles)
 % hObject    handle to MDBox (see GCBO)
@@ -1073,19 +1095,20 @@ doc(mfilename)
 
 
 % --- Executes on button press in LoadButton.
-function LoadButton_Callback(hObject, eventdata, handles)
+function LoadButton_Callback(hObject, eventdata, handles, Job)
 % hObject    handle to LoadButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[FName Path] = uigetfile({'*.mat'}, 'Load previous job settings', ['dd_' datestr(now,'yyyymmmdd') '_Job.mat']);
-if ~FName, return, end
-load(fullfile(Path, FName))
+if nargin<4 || isempty(Job)
+	[FName Path] = uigetfile({'*.mat'}, 'Load previous job settings', ['dd_' datestr(now,'yyyymmmdd') '_Job.mat']);
+	if ~FName, return, end
+	load(fullfile(Path, FName))
+end
 if ~strcmp(get(handles.dd_basicproc_gui, 'Name'), Job.Ver)
     Ans = questdlg(['Another version (' Job.Ver ') was used to create this Job. Use the settings anyway (errors may occur)?']);
     if ~strcmp(Ans, 'Yes'), return, end
 end
-
 
 % -- Data panel --
 handles.DICOM = Job.DICOM;
@@ -1103,7 +1126,7 @@ if numel(get(handles.BETMenu,'String'))==numel(Job.BETMenu.Str) && all(strcmpi(g
 	handles.BETMenu_.Val = Job.BETMenu.Val;
 	handles.BETOpts_.Str = cellstr(Job.BETOpts.Str);
 else
-	warndlg('Could not set job-items: BETMenu & BETOpts')
+	warning('Could not set job-items: BETMenu & BETOpts')
 	handles.BETMenu_.Val = get(handles.BETMenu,'Value');
 	handles.BETOpts_.Str = {get(handles.BETOpts,'String')};
 end
@@ -1126,6 +1149,7 @@ tryset(handles, Job, 'CaminoBox')
 tryset(handles, Job, 'FSLBox')
 % -- Tensor panel --
 tryset(handles, Job, 'EstMenu')
+tryset(handles, Job, 'MaxBValText')
 tryset(handles, Job, 'MDBox')
 tryset(handles, Job, 'NormDBox')
 tryset(handles, Job, 'NormABox')
@@ -1164,7 +1188,7 @@ end
 MenuStr = get(handles.DataMenu, 'String');
 if strcmpi(MenuStr{get(handles.DataMenu, 'Value')}, 'Nifti')
     
-	if any(strncmp('artc_', [handles.Nifti.Files], 5))
+	if any(strncmp('artc_', cat(1,handles.Nifti.Files), 5))
 		switch questdlg('Would you like to use the artefact-corrected (artc_*) files?')
 			case 'No'
 				for n = 1:numel(handles.Nifti)
@@ -1180,7 +1204,13 @@ if strcmpi(MenuStr{get(handles.DataMenu, 'Value')}, 'Nifti')
 	set(hObject, 'Enable', 'inactive', 'ForegroundColor', [0.5 0.5 0.5])
 	HW = waitbar(0, 'Checking volume orientations...');
 	for n = 1:numel(handles.Nifti)
-		WDir  = [handles.Nifti(n).Path filesep];
+		WDir = [handles.Nifti(n).Path filesep];
+		if numel(handles.Nifti(n).Files) == 1 && ~exist(fullfile(WDir, char(handles.Nifti(n).Files)), 'file')	% Catch cases where the 4D file has been split but the job was not updated (e.g. due to a crash)
+			fprintf('DW Image %s not found, using splitted 3D images instead\n', handles.Nifti(n).Files{:})
+			handles.Nifti(n).Files = cellstr(spm_select('List', WDir, [char(spm_file(handles.Nifti(n).Files,'basename')) '_\d\d\d\d\d\.nii$']));
+			guidata(hObject, handles)
+			update_data_panel(handles)
+		end
 		FList = prepend(char(handles.Nifti(n).Files), WDir);
 		try
 			spm_check_orientations(spm_vol(FList));
@@ -1203,7 +1233,7 @@ if strcmpi(MenuStr{get(handles.DataMenu, 'Value')}, 'Nifti')
 				warndlg('Orientations are messed up. Use DICOM images instead')
 				myclose(HW)
 				set(hObject, 'Enable', 'on', 'ForegroundColor', [0 0 0])
-				return
+ 				return
 			end
 		end
 		mywaitbar(n/numel(handles.Nifti), HW)
@@ -1246,6 +1276,7 @@ Job.FSLBox.Val				= get(handles.FSLBox, 'Value');
 % -- Tensor panel --
 Job.EstMenu.Val				= get(handles.EstMenu, 'Value');
 Job.EstMenu.Str				= get(handles.EstMenu, 'String');
+Job.MaxBValText.Str			= get(handles.MaxBValText, 'String');
 Job.MDBox.Val				= get(handles.MDBox, 'Value');
 Job.NormDBox.Val			= get(handles.NormDBox, 'Value');
 Job.NormABox.Val			= get(handles.NormABox, 'Value');
@@ -1306,8 +1337,8 @@ for n = 1:NrSubj
 	if exist(LogNames{n}, 'file')
 		delete(LogNames{n})
 	end
-	if exist([LogNames{n}(1:end-2) 'txt'], 'file')
-		delete([LogNames{n}(1:end-2) 'txt'])
+	if exist([LogNames{n}(1:end-2) 'tsv'], 'file')
+		delete([LogNames{n}(1:end-2) 'tsv'])
 	end
 end
 disp(['Saving Job structure in: ' JobName])
@@ -1385,7 +1416,7 @@ end
 if any(Failed)					% Package and save failed jobs for reprocessing
 	warning('DIDI:FailedSubjects', ['\nDistributed processing failed to complete in %d dataset(s):\n%s. You can use ' ...
 									'%s_failed.mat jobfile for a retry...'], sum(Failed), ...
-									sprintf('%s\n',Job.Nifti(Failed).Path), JobName(1:end-4))
+									sprintf('%s\n',Job.Nifti(Failed,:).Path), JobName(1:end-4))
 	FailedJob = Job;
 	FinishJob = Job;
 	if ~isempty(Job.DICOM)
@@ -1540,6 +1571,13 @@ end
 
 %% --- Processing: Stage 2 (Nifti Job) ---
 
+% Create empty logfiles with provenance info
+for n = 1:numel(Job.Nifti)
+	FIDLog = fopen([LogNames{n}(1:end-2) 'tsv'], 'w');
+	fprintf(FIDLog, 'S%d\tPath:\t%s\n', n, Job.Nifti(n).Path);
+	fclose(FIDLog);
+end
+
 % Clean-up old mask files
 mywaitbar(0, HW, 'Cleaning-up old masks')
 for n = 1:numel(Job.Nifti)
@@ -1549,13 +1587,13 @@ end
 
 % Convert 4D nifti files into 3D nifti files
 for n = 1:numel(Job.Nifti)
-	NDir = numel(Job.Nifti(n).Files);
-	if NDir == 1
+	if numel(Job.Nifti(n).Files) == 1
 		Hdr = spm_vol(fullfile(Job.Nifti(n).Path, char(Job.Nifti(n).Files)));
 		if length(Hdr) > 1
 			disp(['Splitting 4D nifti-file: ' Hdr(1).fname])
 			Hdrs			   = spm_file_split(Hdr);
 			Job.Nifti(n).Files = spm_file({Hdrs.fname}, 'filename');
+			delete(Hdr(1).fname)
 		end
 	end
 end
@@ -1732,7 +1770,7 @@ if ~strcmp(Job.ArtDetMenu.Str{Job.ArtDetMenu.Val}, 'none')
 				mywaitbar(((SubjNr-1)*NrSeries+SeriesNr)/numel(Job.Nifti), HW)
 			end
 		end
-		clear PATCH
+		clearvars PATCH
 	end
 	
 else
@@ -1971,7 +2009,7 @@ catch Exception
 	if strcmp(Exception.identifier, 'TrySet:Item')
 		rethrow(Exception)
 	else
-		warndlg(['Could not set job-item: ' Item])
+		warning(['Could not set job-item: ' Item])
 	end
 end
 

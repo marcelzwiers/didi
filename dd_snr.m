@@ -49,7 +49,7 @@ if ischar(Vol)
 	end
 	Vol = permute(Vols, [4 3 2 1]);						% tzyx-volume
 	Vol(isnan(Vol)) = 0;
-	clear Vols
+	clearvars Vols
 end
 if isempty(Mask)										% Use a simple threshold mask
 	MeanVol = smoothn(shiftdim(mean(Vol,1)), 7);

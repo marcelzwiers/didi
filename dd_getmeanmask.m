@@ -85,11 +85,11 @@ else											% Create a new mask using BET
 				error(Msg);
 		end
 		fprintf('\nCreating mask-file: %s\n', Mask);
-		[Sts Msg] = system(['source ~/.bashrc; export FSLOUTPUTTYPE=' Format '; bet ' MeanImg ' ' Brain(1:end-4) ' ' BETOpts]);	% THIS SHOULD WORK BUT BET DOES NOT RESPECT FSLOUTPUTTYPE IN MATLAB?!
+		[Sts Msg] = system_dccn(['source ~/.bashrc; export FSLOUTPUTTYPE=' Format '; bet ' MeanImg ' ' Brain(1:end-4) ' ' BETOpts]);	% THIS SHOULD WORK BUT BET DOES NOT RESPECT FSLOUTPUTTYPE IN MATLAB?!
 		if Sts % || ~isempty(Msg)
 			if strfind(BETOpts, '-R')
 				warning('DIDI:BET', 'Failure detected: Trying BET without the -R option')
-				[Sts Msg] = system(['source ~/.bashrc; bet ' MeanImg ' ' Brain(1:end-4) ' ' strrep(BETOpts,'-R','')]);
+				[Sts Msg] = system_dccn(['source ~/.bashrc; bet ' MeanImg ' ' Brain(1:end-4) ' ' strrep(BETOpts,'-R','')]);
 				if Sts % || ~isempty(Msg)
 					error(Msg)
 				end
@@ -97,11 +97,12 @@ else											% Create a new mask using BET
 				error(Msg)
 			end
 		end
-		[Sts Msg] = system(['source ~/.bashrc; fslchfiletype ' Format ' ' Mask ...
+		[Sts Msg] = system_dccn(['source ~/.bashrc; fslchfiletype ' Format ' ' Mask ...
 											'; fslchfiletype ' Format ' ' Brain]);
 		if ~isempty(dir([Brain(1:end-4) '*.gz']))
 			warning('FSLOUTPUTTYPE not respected under Matlab (?), trying to unzip the bet output files')
 			gunzip([Brain(1:end-4) '*.gz'])
+			delete([Brain(1:end-4) '*.gz'])
 		end
 		New	= true;
 		

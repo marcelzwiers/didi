@@ -9,19 +9,32 @@ function TDImgs = dd_basicproc_estdtensor(Job, SubjNr, SeriesNr, LogName)
 %
 % See also: DD_BASICPROC, DD_BASICPROC_REALIGNWARP
 
+B0	   = 50;													% Threshold for selection of b0 images
 TDImgs = '';
 if strcmpi(Job.EstMenu.Str{Job.EstMenu.Val}, 'none') || isempty(Job.Nifti(SubjNr,SeriesNr).Files)
 	return
 end
 
 HG		= dd_initcnode(Job);
-rDWImgs = Job.Output(SubjNr,SeriesNr).TgtImgs;					% Fullpath char array
+rDWImgs = Job.Output(SubjNr,SeriesNr).TgtImgs;					% Fullpath cell array
 Mask	= dd_basicproc_getmask(Job, SubjNr, SeriesNr);
 
 % Avoid crashes of Volkmar's toolbox
 if Job.ParallelBox.Val
 	CmdLn = spm_get_defaults('cmdline');
 	spm_get_defaults('cmdline', true)
+end
+
+% Limit the tensor estimation to data from the inner shell(s) (i.e. to higher SNR data)
+if Job.MaxBValText.Str
+	for n = 1:numel(rDWImgs)
+		BVal(n) = getfield(dti_get_dtidata(rDWImgs{n}), 'b');
+	end
+	MaxBVal = str2double(Job.MaxBValText.Str);
+	Sel     = BVal <= MaxBVal;
+	rDWImgs = rDWImgs(Sel);
+	fprintf('\n-> Limiting the tensor estimation to %i/%i DW images\n', sum(Sel), length(Sel));
+	Job.Output(SubjNr,SeriesNr).WImgs = Job.Output(SubjNr,SeriesNr).WImgs(Sel(BVal > B0), :);
 end
 
 % Estimate the diffusion tensor
@@ -50,7 +63,7 @@ end
 
 % Set the negative tensor eigenvalues to zero
 NrVox  = dd_eigvalcorr(DImgs, Mask);
-FIDLog = fopen([LogName(1:end-2) 'txt'], 'a');
+FIDLog = fopen([LogName(1:end-2) 'tsv'], 'a');
 fprintf(FIDLog, 'S%g\tEigenvalue correction:\tNrCorr =\t%d\tNrVox =\t%d\n', SeriesNr, NrVox);
 fclose(FIDLog);
 
@@ -98,7 +111,7 @@ if any(TDVal)
 		disp('-> Exporting masked tensor indices')
 		for n = 1:size(TDImgs,1)
 			[PName FName] = fileparts(TDImgs(n,:));
-			system(sprintf(['source ~/.bashrc; fslchfiletype NIFTI_GZ %s %s; ' ...
+			system_dccn(sprintf(['source ~/.bashrc; fslchfiletype NIFTI_GZ %s %s; ' ...
 				'fslmaths %s -mas %s/FDT_Data/nodif_brain_mask %s'], ...
 				TDImgs(n,:), fullfile(PName,'FDT_Data',FName), ...
 				fullfile(PName,'FDT_Data',FName), PName, fullfile(PName,'FDT_Data',FName)));

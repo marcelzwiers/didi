@@ -21,7 +21,7 @@ if nargin<3 || isempty(PreFix)
 	PreFix = {'Dxx_PATCH_', 'Dxy_PATCH_', 'Dxz_PATCH_', 'Dyy_PATCH_', 'Dyz_PATCH_', 'Dzz_PATCH_'};
 end
 rFNames = char(rFNames);
-if ischar(rWTot);
+if ischar(rWTot)
 	rWTot = permute(single(spm_read_vols(spm_vol(rWTot))), tzyx);
 end
 
@@ -59,7 +59,7 @@ DVol   = zeros([6 VolSz(2:end)]);
 CondNr = 10*eps(class(y));
 for n = 1:prod(VolSz(2:end))
 	W  = rWTot(:,n);
-	WB = bsxfun(@times, W, B);				% bsxfun is faster than repmat
+	WB = bsxfun(@times, W, B);
 	if rcond(WB'*WB) < CondNr				% Test if the matrix inverse can be properly computed (i.e. if we can make a WLS estimate)
 		WB = B;								% If not then revert to OLS
 	end

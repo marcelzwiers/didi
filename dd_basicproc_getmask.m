@@ -123,7 +123,7 @@ end
 % Save info to the logfile
 MaskVol = spm_read_vols(spm_vol(Mask));
 VoxVol	= abs(det(spm_get_space(Mask)))/1000;				% Voxel volume in ml
-FIDLog	= fopen([LogName(1:end-2) 'txt'], 'a');
+FIDLog	= fopen([LogName(1:end-2) 'tsv'], 'a');
 fprintf(FIDLog, 'S%d\t%s-mask:\tVolume (ml) =\t%g\n', SeriesNr, BETMeth, sum(MaskVol(:)) * VoxVol);
 fclose(FIDLog);
 

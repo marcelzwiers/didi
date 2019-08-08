@@ -28,7 +28,7 @@ for SeriesNr = 1:size(Job.Nifti,2)
 	[b0Imgs DWImgs]			 = getb0imgs(Job, SubjNr, SeriesNr);	
 	[SNR BGStd GhStd Spikes] = dd_snr(b0Imgs, Masks(SeriesNr), b0Imgs, 'Background noise (b0)');
 	myspm_print(LogName, sprintf('S%d: Background noise (b0)', SeriesNr))
-	FIDLog = fopen([LogName(1:end-2) 'txt'], 'a');
+	FIDLog = fopen([LogName(1:end-2) 'tsv'], 'a');
 	fprintf(FIDLog, 'S%d\tb0-SNR:\tSNR_SIG =\t%g\tSNR_SD =\t%g\n', SeriesNr, SNR);
 	fprintf(FIDLog, 'S%d\tb0-GNR:\tGNR =\t%g\n', SeriesNr, mean(GhStd(:))/mean(BGStd(:)));
 	fprintf(FIDLog, 'S%d\tb0-Spikes:\tn =\t%d\tN =\t%d\n', SeriesNr, Spikes);

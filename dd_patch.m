@@ -510,7 +510,7 @@ function varargout = dd_patch_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 if ~isfield(handles, 'close')
     H = handles.axes_SumRes;
-    clear handles                % Release working memory (?)
+    clearvars handles                % Release working memory
     waitfor(H);
     handles = guidata(hObject);  % Retrieve latest handles
 end
@@ -545,13 +545,13 @@ HG = spm_figure('FindWin', 'Graphics');
 if ishandle(HG)
 	LogName  = getappdata(HG, 'LogName');
 	SeriesNr = getappdata(HG, 'SeriesNr');
-	FIDLog	 = fopen([LogName(1:end-2) 'txt'], 'a');
+	FIDLog	 = fopen([LogName(1:end-2) 'tsv'], 'a');
 	if FIDLog > -1
 		fprintf(FIDLog, 'S%g\tPATCH:\tVoxel outliers =\t%g\tSlice outliers =\t%g\tNr of slices =\t%g\n', ...
 			SeriesNr, sum(handles.Outliers==2), sum(handles.Outliers==3), numel(handles.Outliers));
 		fclose(FIDLog);
 	else
-		warning('DIDI:PATCH:OpenFile', 'Could not open: %s', [LogName(1:end-2) 'txt'])
+		warning('DIDI:PATCH:OpenFile', 'Could not open: %s', [LogName(1:end-2) 'tsv'])
 	end
 else
 	SeriesNr = 1;
@@ -626,12 +626,12 @@ Hdr		  = spm_write_vol(Hdr, squeeze(ipermute(handles.tSNR, handles.tzyx)));
 if ishandle(HG)
 	LogName  = getappdata(HG, 'LogName');
 	SeriesNr = getappdata(HG, 'SeriesNr');
-	FIDLog	 = fopen([LogName(1:end-2) 'txt'], 'a');
+	FIDLog	 = fopen([LogName(1:end-2) 'tsv'], 'a');
 	if FIDLog > -1
 		fprintf(FIDLog, 'S%g\tPATCH:\ttSNR =\t%g\n', SeriesNr, MeantSNR);
 		fclose(FIDLog);
 	else
-		warning('DIDI:PATCH:OpenFile', 'Could not open: %s', [LogName(1:end-2) 'txt'])
+		warning('DIDI:PATCH:OpenFile', 'Could not open: %s', [LogName(1:end-2) 'tsv'])
 	end
 	set(0,'CurrentFigure',HG)
 	spm_check_registration(Hdr), colorbar, colormap('hot')

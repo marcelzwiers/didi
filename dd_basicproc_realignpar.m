@@ -42,7 +42,7 @@ fprintf('\n-> %s\n', Job.Nifti(SubjNr,SeriesNr).Path)
 DWVol  = spm_vol(makeflist(Job.Nifti(SubjNr,SeriesNr)));
 DWVol  = DWVol(~b0Sel);						% Realign the DW images only
 DWTVol = spm_vol(char(Meanb0));				% = SPM target input
-FIDLog = fopen([LogName(1:end-2) 'txt'], 'a');
+FIDLog = fopen([LogName(1:end-2) 'tsv'], 'a');
 RBTPar = repmat(spm_imatrix(eye(4)), size(DWVol));
 if ~exist('RBTM','var') || isempty(RBTM)
 	RBTM	  = repmat(eye(4), [1 1 numel(DWVol)]);

@@ -52,7 +52,7 @@ if strcmp(Job.EstMenu.Str{Job.EstMenu.Val}, 'PATCH')
 	if PATCH.WLog
 		WTot = PATCH.WLog .* WTot;
 	end
-	clear PATCH
+	clearvars PATCH
 else
 	WTot = [];
 end
@@ -70,7 +70,7 @@ if Job.T1Box.Val && Job.PEUnwarpBox.Val && ~isempty(T1Img)
 	end
 	% Get the absolute in-mask deformation and save this as a QA-parameter
 	if ishandle(HG)
-		FIDLog = fopen([LogName(1:end-2) 'txt'], 'a');
+		FIDLog = fopen([LogName(1:end-2) 'tsv'], 'a');
 		fprintf(FIDLog, 'S%g\tabs(PEUnwarpDef):\tmean =\t%g\tmax =\t%g\n', SeriesNr, getappdata(HG,'MeanMaxDef'));
 		fclose(FIDLog);
 	end
@@ -130,7 +130,7 @@ elseif ~strcmp(Job.RealignMenu.Str{Job.RealignMenu.Val}, 'none')
 			end
 		end
 	end
-	clear X Y Z XYZ tXYZ
+	clearvars X Y Z XYZ tXYZ
 	
 	%-- Reslice Brain + Mask + DWTVol to prevent realignment and brain extraction when calling [..]_getmeanmask in a later stage
 	spm_reslice(strrep(Mask,'_mask',''), struct('which',2, 'mean',0, 'prefix',PreFix))	% Reslice Brain, but name = premean[..] instead of meanpre[..]

@@ -73,11 +73,11 @@ for SubjNr = SubjNrs
 				delete(fullfile(FSLDir, '*'))
 			end
 			disp(['-> Merging DWI files to FSL''s 4D-nifti format in ' FSLDir])
-			system(['source ~/.bashrc; fslmerge -t ' FSLDir 'data' sprintf(' "%s"', DWImgs{:})]);
+			system_dccn(['source ~/.bashrc; fslmerge -t ' FSLDir 'data' sprintf(' "%s"', DWImgs{:})]);
 			disp('-> Exporting Mask')
-			system(['source ~/.bashrc; fslchfiletype NIFTI_GZ ' char(Mask) ' ' FSLDir 'nodif_brain_mask']);
+			system_dccn(['source ~/.bashrc; fslchfiletype NIFTI_GZ ' char(Mask) ' ' FSLDir 'nodif_brain_mask']);
 			disp('-> Exporting Masked (skull-stripped) mean b0-image')
-			system(['source ~/.bashrc; fslchfiletype NIFTI_GZ ' strrep(char(Mask), '_mask', '') ' ' FSLDir 'nodif_brain']);
+			system_dccn(['source ~/.bashrc; fslchfiletype NIFTI_GZ ' strrep(char(Mask), '_mask', '') ' ' FSLDir 'nodif_brain']);
 			disp('-> Exporting bvals and bvecs')
 			save([FSLDir 'bvecs'], 'BVecs', '-ASCII');
 			save([FSLDir 'bvals'], 'BVals', '-ASCII');
