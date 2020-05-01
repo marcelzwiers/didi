@@ -1,8 +1,8 @@
 function Job = dd_bids(BIDSDir, Sub, Ses, DidiDir)
 
-% Job = DD_BIDS(BIDSDir, Sub, Ses, DidiDir)
+% Job = DD_BIDS([BIDSDir], [Sub], [Ses], [DidiDir])
 %
-% Creates a shadow directory in bids/derivatives/didi/.. with unzipped copies of the DWI data
+% BIDS compliant wrapper around DD_BASICPROC that creates a shadow directory in bids/derivatives/didi/.. with unzipped copies of the DWI data
 
 fprintf('Building the BIDS-map\n')
 if nargin<1 || isempty(BIDSDir)
@@ -40,11 +40,13 @@ for n = 1:numel(Sub)
 		fprintf('-> %s\n', fullfile(DidiDir, Sub{n}, Ses{m}))
 		DWI_src		 = spm_BIDS(BIDS, 'data', 'sub',Sub{n}, 'ses',Ses{m}, 'type','dwi');
 		T1_src		 = spm_BIDS(BIDS, 'data', 'sub',Sub{n}, 'ses',Ses{m}, 'type','T1w');
-		assert(size(T1_src,1) < 2, 'More than 1 T1w image found, do not know which one to choose...')
+		if size(T1_src,1) > 1
+            warning('More than 1 T1w image found, taking the last one...')
+        end
 		DWI_dst{n,m} = spm_file(DWI_src, 'path', fullfile(DidiDir,Sub{n},Ses{m},'dwi'));
-		T1_dst{n,m}  = spm_file(T1_src,  'path', fullfile(DidiDir,Sub{n},Ses{m},'anat'));
+		T1_dst{n,m}  = spm_file(T1_src(end,:),  'path', fullfile(DidiDir,Sub{n},Ses{m},'anat'));
 		spm_copy(DWI_src, spm_file(DWI_dst{n,m},'path'), 'nifti',true, 'gunzip',true)
-		spm_copy(T1_src,  spm_file(T1_dst{n,m}, 'path'), 'nifti',true, 'gunzip',true)
+		spm_copy(T1_src(end,:),  spm_file(T1_dst{n,m}, 'path'), 'nifti',true, 'gunzip',true)
 		% spm_copy does not (yet?) support bval/bvec file-extensions (neither does it consider a .nii.gz extension as nifti)
 		spm_copy(spm_file(spm_file(DWI_src,'ext',''),'ext','.bv*'), spm_file(DWI_dst{n,m},'path'))
 	end
