@@ -1601,6 +1601,7 @@ end
 % Determine the maximum number of DW directions (images) and split the file if it is 4D
 NDir			  = max(cellfun(@numel,{Job.Nifti.Files}));
 [NrSubj	NrSeries] = size(Job.Nifti);
+fprintf('Maximum number of DW directions: (%i)\n', NDir)
 
 % Import the bval- bvec info from user provided files if there are no DICOM generated .mat files available
 myset(HG, 'Visible', 'On')
@@ -1628,7 +1629,7 @@ end
 % Estimate the SNR of the raw b0- & DW-images and create brain masks
 fprintf('\n==> Estimating the image SNR (%s)\n', datestr(now))
 if Job.ParallelBox.Val
-	[TimReq MemReq] = maxreq(NDir * 10 * NrSeries, NDir * 40*1024^2);		% Estimated mem 3.6GB, it required 700MB
+	[TimReq MemReq] = maxreq(NDir * 20 * NrSeries, NDir * 80*1024^2);		% Estimated mem 3.6GB, it required 700MB
 	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
 	OK = qsubcellfun(@dd_basicproc_getsnr, stackjob(Job,'Nifti','Subj'), num2cell(1:NrSubj), LogNames, ...
 					  'TimReq',TimReq, 'MemReq',MemReq, 'StopOnError',false);
@@ -1790,7 +1791,7 @@ if Job.ParallelBox.Val
 	% Realign the DW images. NB: Do not resubmit unless it takes really long (to avoid two jobs messing with the same data)
 	fprintf('\n==> Realigning DW + b0 images (%s)\n', datestr(now))
 	[TimReq MemReq] = maxreq(NDir*120 * NrSeries, 1024^3);
-	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
+	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, 3 * MemReq/1024^2)
 	[RBTM APar D2TM] = qsubcellfun(@dd_basicproc_realign, stackjob(Job,'Nifti','Subj'), ...
 									num2cell(1:NrSubj), repack(RBTM), LogNames, ...
 									repmat({Constr},1,NrSubj), repmat({Tuning},1,NrSubj), ...
@@ -1800,7 +1801,7 @@ if Job.ParallelBox.Val
 	% Reslice/unwarp the DW images
 	fprintf('\n==> Unwarping / resampling images (%s)\n', datestr(now))
 	[TimReq MemReq] = maxreq(NDir*120 * NrSeries + 2*60^2, 1.5*1024^3);
-	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, MemReq/1024^2)
+	fprintf('Estimated time/job required:\t%.1f minutes\nEstimated memory/job required:\t%.1f MB\n', TimReq/60, 3 * MemReq/1024^2)
 	[TgtImgs WImgs] = qsubcellfun(@dd_basicproc_warp, stackjob(Job,'Nifti','Subj'), ...
 								  num2cell(1:NrSubj), LogNames, APar, D2TM, ...
 								  'TimReq',TimReq, 'MemReq',MemReq, 'StopOnError',false);
